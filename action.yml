@@ -1,0 +1,27 @@
+name: "Publish LaTeX"
+description: "Compile a LaTeX document into a PDF using a Rust CLI"
+
+inputs:
+  source:
+    description: "Path to the LaTeX source file"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install LaTeX
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y latexmk texlive-latex-base
+
+    - name: Build publish-latex
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: cargo build --release
+
+    - name: Compile LaTeX
+      shell: bash
+      run: |
+        "${{ github.action_path }}/target/release/publish-latex" \
+          "${{ inputs.source }}"
