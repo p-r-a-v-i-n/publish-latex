@@ -63,7 +63,6 @@ fn main() {
     if output.status.success() {
         let pdf_path = path.with_extension("pdf");
 
-        // Make sure the expected PDF was actually generated.
         if pdf_path.exists() {
             println!("PDF generated successfully");
             println!("PDF: {}", pdf_path.display());
@@ -72,6 +71,8 @@ fn main() {
                 "Error: latexmk succeeded but PDF was not found: {}",
                 pdf_path.display()
             );
+
+            std::process::exit(1);
         }
     } else {
         eprintln!("LaTeX compilation failed:");
@@ -87,5 +88,7 @@ fn main() {
             eprintln!("Errors:");
             eprintln!("{stderr}");
         }
+
+        std::process::exit(1);
     }
 }
