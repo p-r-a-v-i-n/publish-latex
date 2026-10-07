@@ -1,14 +1,14 @@
 use std::env;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, ExitCode};
 
-fn main() {
+fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
         eprintln!("Error: no argument provided");
         eprintln!("Usage: publish-latex <file.tex>");
-        return;
+        return ExitCode::FAILURE;
     }
 
     let filename = &args[1];
@@ -16,17 +16,17 @@ fn main() {
 
     if path.extension().and_then(|ext| ext.to_str()) != Some("tex") {
         eprintln!("Error: input must be a .tex file");
-        return;
+        return ExitCode::FAILURE;
     }
 
     if !path.exists() {
         eprintln!("Error: file does not exist: {filename}");
-        return;
+        return ExitCode::FAILURE;
     }
 
     if !path.is_file() {
         eprintln!("Error: input is not a file: {filename}");
-        return;
+        return ExitCode::FAILURE;
     }
 
     println!("Found: {filename}");
@@ -37,20 +37,20 @@ fn main() {
         Ok(output) => {
             if !output.status.success() {
                 eprintln!("Error: latexmk is installed but could not run successfully");
-                return;
+                return ExitCode::FAILURE;
             }
         }
         Err(error) => {
             eprintln!("Error: failed to execute latexmk: {error}");
             eprintln!("Make sure latexmk is installed and available in PATH.");
-            return;
+            return ExitCode::FAILURE;
         }
     }
 
     println!("Found latexmk");
     println!("Compiling {filename}...");
 
-    let output = Command::new("latexmk")
+    let output = match Command::new("latexmk")
         .args([
             "-pdf",
             "-interaction=nonstopmode",
@@ -58,23 +58,15 @@ fn main() {
             filename,
         ])
         .output()
-        .expect("failed to execute latexmk");
-
-    if output.status.success() {
-        let pdf_path = path.with_extension("pdf");
-
-        if pdf_path.exists() {
-            println!("PDF generated successfully");
-            println!("PDF: {}", pdf_path.display());
-        } else {
-            eprintln!(
-                "Error: latexmk succeeded but PDF was not found: {}",
-                pdf_path.display()
-            );
-
-            std::process::exit(1);
+    {
+        Ok(output) => output,
+        Err(error) => {
+            eprintln!("Error: failed to execute latexmk: {error}");
+            return ExitCode::FAILURE;
         }
-    } else {
+    };
+
+    if !output.status.success() {
         eprintln!("LaTeX compilation failed:");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -89,6 +81,22 @@ fn main() {
             eprintln!("{stderr}");
         }
 
-        std::process::exit(1);
+        return ExitCode::FAILURE;
     }
+
+    let pdf_path = path.with_extension("pdf");
+
+    if !pdf_path.exists() {
+        eprintln!(
+            "Error: latexmk succeeded but PDF was not found: {}",
+            pdf_path.display()
+        );
+
+        return ExitCode::FAILURE;
+    }
+
+    println!("PDF generated successfully");
+    println!("PDF: {}", pdf_path.display());
+
+    ExitCode::SUCCESS
 }
